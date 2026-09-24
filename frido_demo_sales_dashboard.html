@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Sales by Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --ink:#16213A; --muted:#5E6B85; --line:#D6DCE8;
+  --accent:#2F5BEA; --accent-soft:#DCE5FD; --good:#1F8A5B; --warn:#B4572B;
+  --font:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0F1522; --panel:#18202F; --ink:#E6EBF5; --muted:#93A0B8; --line:#2A3448;
+    --accent:#6F92FF; --accent-soft:#223157; --good:#4CC38A; --warn:#E68A5C;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:22px}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:0}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+button,input,select{font-family:inherit;font-size:14px;color:var(--ink)}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.filters{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted);font-weight:600}
+.field input[type=date]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:600;color:var(--muted)}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+.agent-dd{position:relative}
+.agent-dd .btn{min-width:200px;text-align:left;background:var(--bg)}
+.panel{position:absolute;top:calc(100% + 6px);left:0;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:10px;width:260px;max-height:340px;overflow:auto;padding:8px;box-shadow:0 12px 30px rgba(10,20,40,.18);display:none}
+.panel.open{display:block}
+.panel input[type=search]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-bottom:6px}
+.panel label{display:flex;gap:8px;align-items:center;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:14px}
+.panel label:hover{background:var(--bg)}
+.panel .all{border-bottom:1px solid var(--line);margin-bottom:4px;font-weight:700}
+
+.kpis{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:18px 0}
+.kpi{background:var(--panel);padding:16px 18px}
+.kpi .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi:first-child .v{font-size:32px;color:var(--accent)}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+@media (max-width:720px){.kpis{grid-template-columns:1fr 1fr}.kpi:first-child{grid-column:1/-1}}
+
+.tablebox{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tablehead{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+.tablehead h2{font-size:16px;margin:0;font-weight:700}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:640px}
+th,td{padding:10px 16px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:700;background:var(--bg);cursor:pointer;user-select:none}
+th.sorted{color:var(--accent)}
+tbody tr{border-top:1px solid var(--line)}
+tbody tr:hover{background:var(--bg)}
+td.rank{color:var(--muted);width:40px}
+td.name{font-weight:600}
+.barcell{min-width:220px}
+.bar{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.bar .track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;min-width:80px}
+.bar .fill{height:100%;background:var(--accent);border-radius:4px}
+.bar span{min-width:92px}
+tfoot td{border-top:2px solid var(--line);font-weight:800}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.status{font-size:12px;color:var(--muted);margin-top:14px}
+.status .err{color:var(--warn);font-weight:600}
+.src{font-size:12px;color:var(--muted);font-weight:500}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Demo sales by agent</h1>
+      <div class="sub" id="lastLoad">Loading sheets…</div>
+    </div>
+    <button class="btn" id="refresh">Refresh data</button>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="field">
+      <label for="from">From</label>
+      <input type="date" id="from">
+    </div>
+    <div class="field">
+      <label for="to">To</label>
+      <input type="date" id="to">
+    </div>
+    <div class="field">
+      <label>Quick range</label>
+      <div class="presets" id="presets">
+        <button class="chip" data-p="today">Today</button>
+        <button class="chip" data-p="7d">Last 7 days</button>
+        <button class="chip" data-p="month">This month</button>
+        <button class="chip" data-p="lastmonth">Last month</button>
+        <button class="chip" data-p="all">All time</button>
+      </div>
+    </div>
+    <div class="field agent-dd">
+      <label>Agent</label>
+      <button class="btn" id="agentBtn" aria-haspopup="true" aria-expanded="false">All agents</button>
+      <div class="panel" id="agentPanel">
+        <input type="search" id="agentSearch" placeholder="Search agent">
+        <label class="all"><input type="checkbox" id="agentAll" checked> All agents</label>
+        <div id="agentList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><div class="l">Revenue</div><div class="v" id="kRev">–</div></div>
+    <div class="kpi"><div class="l">Orders</div><div class="v" id="kOrd">–</div></div>
+    <div class="kpi"><div class="l">Avg order value</div><div class="v" id="kAov">–</div></div>
+    <div class="kpi"><div class="l">Agents with sales</div><div class="v" id="kAg">–</div></div>
+  </section>
+
+  <section class="tablebox">
+    <div class="tablehead">
+      <h2>Agent-wise sales</h2>
+      <button class="btn" id="exportBtn">Export CSV</button>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th data-k="rank">#</th>
+          <th data-k="agent">Agent</th>
+          <th data-k="orders">Orders</th>
+          <th data-k="revenue">Revenue</th>
+          <th data-k="aov">Avg order value</th>
+          <th data-k="share">Share</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </section>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+/* ============ CONFIG ============ */
+const SOURCES = [
+  { name:'VC demo sheet',
+    url:'https://docs.google.com/spreadsheets/d/e/2PACX-1vREexFj99lMKOlELEpa0dunD9zf8Qou5YDDVdSpi5ntmuwI-n8YJNmQp0hEXY2lPHCD9wLc79XMpm32/pub?gid=210428595&single=true&output=csv',
+    cols:{ date:'Demo Date', agent:'VC Agent', order:'Order id', amount:'Order Value' } },
+  { name:'Call demo sheet',
+    url:'https://docs.google.com/spreadsheets/d/e/2PACX-1vSdELoz2xRfBH0Srumk98dQkZ1pQ1y_E5VSIEWuNcnMJJTRiAB0IEe9jFLHiKwY0FGiWKFuZOmMyQGj/pub?gid=371969024&single=true&output=csv',
+    cols:{ date:'Demo Date', agent:'Call Done From Agent', order:'OrderID', amount:'Order Amount' } }
+];
+// Manual name fixes: lowercase variant -> display name
+const AGENT_ALIASES = {
+  // 'vimarsh': 'Vimarsh Raina',
+};
+/* ================================ */
+
+const INR = new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0});
+const NUM = new Intl.NumberFormat('en-IN');
+const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const $ = id => document.getElementById(id);
+const norm = s => String(s ?? '').toLowerCase().replace(/\s+/g,' ').trim();
+const pad = n => String(n).padStart(2,'0');
+const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+let RECORDS = [], AGENTS = [], selected = null, sort = {k:'revenue', dir:-1}, stats = {};
+
+function parseDate(v){
+  const s = String(v ?? '').trim(); if(!s) return null;
+  let m = s.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/);          // Sep 11, 2026, 2:45:00 PM
+  if(m && MON[m[1].toLowerCase()] !== undefined) return key(new Date(+m[3], MON[m[1].toLowerCase()], +m[2]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);                                 // 9/2/2026 [time]
+  if(m) return key(new Date(+m[3], +m[1]-1, +m[2]));
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                                   // 2026-09-02
+  if(m) return key(new Date(+m[1], +m[2]-1, +m[3]));
+  return null;
+}
+function parseAmount(v){
+  const s = String(v ?? '').replace(/₹|rs\.?|inr/gi,'');
+  const nums = s.match(/\d[\d,]*(\.\d+)?/g) || [];
+  return nums.reduce((a,n)=> a + (parseFloat(n.replace(/,/g,'')) || 0), 0);
+}
+function splitIds(v){
+  return String(v ?? '').split(/[,\s]+/).map(x=>x.trim().toUpperCase()).filter(x=>x && x !== '-' && x !== 'NA' && x !== 'N/A');
+}
+function cleanAgent(a){
+  let s = String(a ?? '').replace(/@/g,'').replace(/\s+/g,' ').trim();
+  if(!s) return 'Unassigned';
+  s = s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  return AGENT_ALIASES[s.toLowerCase()] || s;
+}
+
+function findHeader(rows, cols){
+  const want = Object.values(cols).map(norm);
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const r = rows[i].map(norm);
+    if(want.every(w=>r.includes(w))){
+      const idx = {}; for(const [k,c] of Object.entries(cols)) idx[k] = r.indexOf(norm(c));
+      return {row:i, idx};
+    }
+  }
+  return null;
+}
+
+function fetchCsv(url){
+  return new Promise((res,rej)=>{
+    Papa.parse(url + '&_=' + Date.now(), {download:true, skipEmptyLines:true, complete:r=>res(r.data), error:e=>rej(e)});
+  });
+}
+
+async function load(){
+  $('status').textContent = 'Loading…';
+  RECORDS = []; stats = {rows:0, sales:0, dupes:0, noDate:0, errors:[]};
+  const seen = new Set();
+  const results = await Promise.allSettled(SOURCES.map(s=>fetchCsv(s.url)));
+  results.forEach((r,si)=>{
+    const src = SOURCES[si];
+    if(r.status !== 'fulfilled'){ stats.errors.push(`${src.name}: could not load (${r.reason?.message || 'network error'})`); return; }
+    const h = findHeader(r.value, src.cols);
+    if(!h){ stats.errors.push(`${src.name}: header row not found — check column names in CONFIG`); return; }
+    r.value.slice(h.row+1).forEach(row=>{
+      stats.rows++;
+      const ids = splitIds(row[h.idx.order]);
+      if(!ids.length) return;                                  // no order = no sale
+      if(ids.every(id=>seen.has(id))){ stats.dupes++; return; } // already counted
+      ids.forEach(id=>seen.add(id));
+      const date = parseDate(row[h.idx.date]);
+      if(!date) stats.noDate++;
+      stats.sales++;
+      RECORDS.push({ date, agent:cleanAgent(row[h.idx.agent]), orders:ids.length, revenue:parseAmount(row[h.idx.amount]), src:src.name });
+    });
+  });
+  mergeFirstNames();
+  AGENTS = [...new Set(RECORDS.map(r=>r.agent))].sort();
+  if(selected) selected = new Set([...selected].filter(a=>AGENTS.includes(a)));
+  buildAgentList();
+  $('lastLoad').textContent = 'Updated ' + new Date().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+  render();
+}
+
+// "Vimarsh" -> "Vimarsh Raina" when exactly one full name starts with that first name
+function mergeFirstNames(){
+  const names = [...new Set(RECORDS.map(r=>r.agent))];
+  const full = names.filter(n=>n.includes(' '));
+  const map = {};
+  names.filter(n=>!n.includes(' ') && n !== 'Unassigned').forEach(n=>{
+    const hits = full.filter(f=>f.split(' ')[0].toLowerCase() === n.toLowerCase());
+    if(hits.length === 1) map[n] = hits[0];
+  });
+  RECORDS.forEach(r=>{ if(map[r.agent]) r.agent = map[r.agent]; });
+}
+
+function buildAgentList(){
+  const q = norm($('agentSearch').value);
+  $('agentList').innerHTML = AGENTS.filter(a=>!q || norm(a).includes(q)).map(a=>
+    `<label><input type="checkbox" value="${a.replace(/"/g,'&quot;')}" ${!selected || selected.has(a) ? 'checked':''}> ${a}</label>`).join('');
+  $('agentAll').checked = !selected;
+  $('agentBtn').textContent = !selected ? 'All agents' : selected.size === 1 ? [...selected][0] : `${selected.size} agents`;
+}
+
+function aggregate(){
+  const from = $('from').value, to = $('to').value;
+  const byAgent = {};
+  RECORDS.forEach(r=>{
+    if((from || to) && !r.date) return;
+    if(from && r.date < from) return;
+    if(to && r.date > to) return;
+    if(selected && !selected.has(r.agent)) return;
+    const a = byAgent[r.agent] ||= {agent:r.agent, orders:0, revenue:0};
+    a.orders += r.orders; a.revenue += r.revenue;
+  });
+  const rows = Object.values(byAgent);
+  const total = rows.reduce((t,r)=>({orders:t.orders+r.orders, revenue:t.revenue+r.revenue}), {orders:0,revenue:0});
+  rows.forEach(r=>{ r.aov = r.orders ? r.revenue/r.orders : 0; r.share = total.revenue ? r.revenue/total.revenue : 0; });
+  const byRev = [...rows].sort((a,b)=>b.revenue-a.revenue); byRev.forEach((r,i)=>r.rank=i+1);
+  const k = sort.k;
+  rows.sort((a,b)=> k==='agent' ? sort.dir*a.agent.localeCompare(b.agent) : sort.dir*((a[k]||0)-(b[k]||0)));
+  return {rows,total};
+}
+
+function render(){
+  const {rows,total} = aggregate();
+  $('kRev').textContent = INR.format(total.revenue);
+  $('kOrd').textContent = NUM.format(total.orders);
+  $('kAov').textContent = total.orders ? INR.format(total.revenue/total.orders) : '–';
+  $('kAg').textContent = rows.length;
+  const max = Math.max(...rows.map(r=>r.revenue), 1);
+  $('tbody').innerHTML = rows.length ? rows.map(r=>`
+    <tr>
+      <td class="rank">${r.rank}</td>
+      <td class="name">${r.agent}</td>
+      <td>${NUM.format(r.orders)}</td>
+      <td class="barcell"><div class="bar"><div class="track"><div class="fill" style="width:${(r.revenue/max*100).toFixed(1)}%"></div></div><span>${INR.format(r.revenue)}</span></div></td>
+      <td>${INR.format(r.aov)}</td>
+      <td>${(r.share*100).toFixed(1)}%</td>
+    </tr>`).join('') : `<tr><td colspan="6" class="empty">No orders in this range. Widen the dates or pick more agents.</td></tr>`;
+  $('tfoot').innerHTML = rows.length ? `<tr><td></td><td>Total</td><td>${NUM.format(total.orders)}</td><td>${INR.format(total.revenue)}</td><td>${total.orders?INR.format(total.revenue/total.orders):'–'}</td><td>100%</td></tr>` : '';
+  document.querySelectorAll('th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.k===sort.k);
+    const base = th.textContent.replace(/ [▲▼]$/,'');
+    th.textContent = base + (th.dataset.k===sort.k ? (sort.dir>0?' ▲':' ▼') : '');
+  });
+  const err = stats.errors.map(e=>`<span class="err">${e}</span>`).join('<br>');
+  $('status').innerHTML = (err ? err + '<br>' : '') +
+    `${NUM.format(stats.rows)} rows read · ${NUM.format(stats.sales)} rows with orders` +
+    (stats.dupes ? ` · ${stats.dupes} duplicate order IDs skipped` : '') +
+    (stats.noDate ? ` · ${stats.noDate} sales with no readable date (shown only in All time)` : '');
+  window._lastRows = {rows,total};
+}
+
+function setPreset(p){
+  const t = new Date(); let f='', to='';
+  if(p==='today'){ f = to = key(t); }
+  if(p==='7d'){ const s = new Date(t); s.setDate(t.getDate()-6); f = key(s); to = key(t); }
+  if(p==='month'){ f = key(new Date(t.getFullYear(), t.getMonth(), 1)); to = key(new Date(t.getFullYear(), t.getMonth()+1, 0)); }
+  if(p==='lastmonth'){ f = key(new Date(t.getFullYear(), t.getMonth()-1, 1)); to = key(new Date(t.getFullYear(), t.getMonth(), 0)); }
+  $('from').value = f; $('to').value = to;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.p===p));
+  render();
+}
+
+/* events */
+$('presets').addEventListener('click', e=>{ if(e.target.dataset.p) setPreset(e.target.dataset.p); });
+['from','to'].forEach(id=>$(id).addEventListener('change',()=>{ document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on')); render(); }));
+$('agentBtn').addEventListener('click', e=>{ e.stopPropagation(); const o = $('agentPanel').classList.toggle('open'); $('agentBtn').setAttribute('aria-expanded', o); });
+document.addEventListener('click', e=>{ if(!e.target.closest('.agent-dd')) $('agentPanel').classList.remove('open'); });
+$('agentSearch').addEventListener('input', buildAgentList);
+$('agentAll').addEventListener('change', e=>{ selected = e.target.checked ? null : new Set(); buildAgentList(); render(); });
+$('agentList').addEventListener('change', e=>{
+  const a = e.target.value;
+  if(!selected) selected = new Set(AGENTS);
+  e.target.checked ? selected.add(a) : selected.delete(a);
+  if(selected.size === AGENTS.length) selected = null;
+  buildAgentList(); render();
+});
+document.querySelector('thead').addEventListener('click', e=>{
+  const k = e.target.dataset.k; if(!k) return;
+  if(k==='rank'){ sort = {k:'revenue', dir:-1}; }
+  else sort = sort.k===k ? {k, dir:-sort.dir} : {k, dir: k==='agent' ? 1 : -1};
+  render();
+});
+$('refresh').addEventListener('click', load);
+$('exportBtn').addEventListener('click', ()=>{
+  const {rows,total} = window._lastRows || {rows:[],total:{}};
+  const lines = [['Agent','Orders','Revenue','Avg Order Value','Share %'],
+    ...rows.map(r=>[r.agent, r.orders, Math.round(r.revenue), Math.round(r.aov), (r.share*100).toFixed(1)]),
+    ['Total', total.orders, Math.round(total.revenue), total.orders?Math.round(total.revenue/total.orders):0, '100']];
+  const csv = lines.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `agent_sales_${$('from').value||'all'}_${$('to').value||'all'}.csv`;
+  a.click();
+});
+
+document.querySelector('.chip[data-p="month"]').classList.add('on');
+(function(){ const t=new Date(); $('from').value=key(new Date(t.getFullYear(),t.getMonth(),1)); $('to').value=key(new Date(t.getFullYear(),t.getMonth()+1,0)); })();
+load();
+</script>
+</body>
+</html>
